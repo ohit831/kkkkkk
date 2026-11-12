@@ -1,0 +1,6 @@
+{
+  "name": "Rathod AI",
+  "description": "Futuristic AI voice assistant powered by Gemini with multilingual speech recognition, female voice output, and system command router.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

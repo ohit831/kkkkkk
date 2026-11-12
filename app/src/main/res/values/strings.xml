@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Rathod AI</string>
+    <string name="assistant_name">Rathod</string>
+    <string name="user_greeting">Hello Rohit</string>
+    <string name="wake_word_phrase">Hey Rathod</string>
+    <string name="wake_word_channel_name">Rathod AI Wake Word</string>
+    <string name="wake_word_channel_desc">Persistent notification while Rathod AI listens for the activation phrase</string>
+    <string name="wake_word_notification_title">Rathod AI Active</string>
+    <string name="wake_word_notification_text">Listening for activation: &quot;Hey Rathod&quot;</string>
+    <string name="action_stop">Stop</string>
+</resources>
