@@ -203,15 +203,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val assistantResponse = geminiService.processUserCommand(text, _activeLanguage.value)
-                processAssistantResponse(assistantResponse)
+
+                // Intelligent check: If Gemini returned GENERAL_QUESTION, check if local router identified a specific system action
+                val localCommand = commandRouter.parseCommandFromText(text)
+                val effectiveResponse = if (assistantResponse.command is AppCommand.GeneralQuestion && localCommand !is AppCommand.GeneralQuestion) {
+                    assistantResponse.copy(command = localCommand)
+                } else {
+                    assistantResponse
+                }
+
+                processAssistantResponse(effectiveResponse)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing AI response", e)
-                val errorMessage = "Error connecting to Rathod AI: ${e.localizedMessage ?: "Unknown network failure"}"
-                _orbState.value = OrbState.ERROR
-                _statusText.value = "Error: Check connection"
-                addAssistantMessage(errorMessage, isError = true)
+                // Offline fallback: Check if command can be executed locally on device
+                val localCommand = commandRouter.parseCommandFromText(text)
+                if (localCommand !is AppCommand.GeneralQuestion) {
+                    val fallbackResponse = com.example.ai.AssistantResponse(
+                        spokenText = "Executing command locally for you, Rohit.",
+                        command = localCommand
+                    )
+                    processAssistantResponse(fallbackResponse)
+                } else {
+                    val errorMessage = "Error connecting to Rathod AI: ${e.localizedMessage ?: "Unknown network failure"}"
+                    _orbState.value = OrbState.ERROR
+                    _statusText.value = "Error: Check connection"
+                    addAssistantMessage(errorMessage, isError = true)
+                }
             }
         }
     }

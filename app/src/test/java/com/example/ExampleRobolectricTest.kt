@@ -129,6 +129,27 @@ class ExampleRobolectricTest {
         // After user confirmation
         val confirmedResult = commandRouter.executeCommand(callCmd, userConfirmed = true)
         assertTrue(confirmedResult is CommandExecutionResult.Executed)
+
+        // Test DEVICE_SETTING commands (Wi-Fi, Bluetooth)
+        val wifiCmd = AppCommand.DeviceSetting(com.example.commands.SettingType.WIFI)
+        val wifiResult = commandRouter.executeCommand(wifiCmd)
+        assertTrue(wifiResult is CommandExecutionResult.Executed)
+        assertNotNull((wifiResult as CommandExecutionResult.Executed).pendingIntent)
+
+        // Test Text Parsing from raw Gemini responses
+        val parsedApp = commandRouter.parseCommandFromText("Open YouTube")
+        assertTrue(parsedApp is AppCommand.OpenApp)
+        assertEquals("YouTube", (parsedApp as AppCommand.OpenApp).appName)
+
+        val parsedTorch = commandRouter.parseCommandFromText("Turn on flashlight")
+        assertTrue(parsedTorch is AppCommand.DeviceSetting)
+        assertEquals(com.example.commands.SettingType.FLASHLIGHT, (parsedTorch as AppCommand.DeviceSetting).settingType)
+        assertEquals(true, (parsedTorch as AppCommand.DeviceSetting).enable)
+
+        val parsedAlarm = commandRouter.parseCommandFromText("Set alarm for 06:45 am")
+        assertTrue(parsedAlarm is AppCommand.SetAlarm)
+        assertEquals(6, (parsedAlarm as AppCommand.SetAlarm).hour)
+        assertEquals(45, (parsedAlarm as AppCommand.SetAlarm).minute)
     }
 
     // TEST 6: Female Voice Output settings

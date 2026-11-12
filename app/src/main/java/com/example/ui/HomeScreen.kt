@@ -501,12 +501,15 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val quickCommands = listOf(
-                        "⏰ Set alarm for 7:00 AM" to "Set alarm for 7:00 AM",
+                        "🔦 Toggle Flashlight" to "Turn on flashlight",
+                        "📶 Wi-Fi Settings" to "Open Wi-Fi settings",
+                        "⏰ Alarm 7:00 AM" to "Set alarm for 7:00 AM",
                         "📝 Take a note" to "Take a note: Prepare project report for tomorrow",
-                        "💬 Draft message" to "Draft message to Rohit: Hey, meeting is at 4 PM",
                         "▶️ Open YouTube" to "Open YouTube",
+                        "💬 Draft message" to "Draft message to Rohit: Hey, meeting is at 4 PM",
                         "🗺️ Open Maps" to "Open Maps for nearest coffee shop",
-                        "💡 Fun Fact in Kannada" to "Tell me a fascinating space fact in Kannada"
+                        "ಕನ್ನಡ Kannada Fact" to "Tell me a fascinating space fact in Kannada",
+                        "हिन्दी Hindi Fact" to "Tell me an interesting science fact in Hindi"
                     )
 
                     quickCommands.forEach { (label, commandText) ->

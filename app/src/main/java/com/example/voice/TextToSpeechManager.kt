@@ -32,7 +32,10 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
     private val _isFemaleVoiceActive = MutableStateFlow(true)
     val isFemaleVoiceActive: StateFlow<Boolean> = _isFemaleVoiceActive.asStateFlow()
 
-    private val _pitch = MutableStateFlow(1.15f) // Default 1.15f produces feminine tone
+    private val _activeVoiceName = MutableStateFlow("Default Female")
+    val activeVoiceName: StateFlow<String> = _activeVoiceName.asStateFlow()
+
+    private val _pitch = MutableStateFlow(1.15f) // Default 1.15f produces a natural feminine tone
     val pitch: StateFlow<Float> = _pitch.asStateFlow()
 
     private val _speechRate = MutableStateFlow(1.0f)
@@ -92,7 +95,6 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
 
     fun setFemaleVoicePreference(enabled: Boolean) {
         _isFemaleVoiceActive.value = enabled
-        // Female voice timbre benefit: higher pitch if female engine voice is active or fallback
         _pitch.value = if (enabled) 1.15f else 1.0f
         applyVoiceSettings(lastLanguage)
     }
@@ -134,27 +136,68 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
         val engine = tts ?: return
         try {
             val voices = engine.voices ?: return
-            val matchingVoices = voices.filter { voice ->
-                voice.locale.language == language.locale.language
-            }
+            val languageCode = language.locale.language
 
-            // Look for female voice identifiers
-            val femaleVoice = matchingVoices.firstOrNull { voice ->
+            // Score voices based on matching locale, female markers, and voice quality
+            val scoredVoices = voices.filter { it.locale.language == languageCode }.map { voice ->
+                var score = 0
                 val nameLower = voice.name.lowercase()
-                nameLower.contains("female") ||
-                        nameLower.contains("f00") ||
-                        nameLower.contains("fem") ||
-                        nameLower.contains("woman") ||
-                        voice.features.any { it.contains("female", ignoreCase = true) }
-            } ?: matchingVoices.firstOrNull()
 
-            if (femaleVoice != null) {
-                engine.voice = femaleVoice
-                Log.d(TAG, "Selected TTS voice: ${femaleVoice.name} for ${language.code}")
+                // Language match
+                if (voice.locale == language.locale) score += 1000
+                if (voice.locale.language == languageCode) score += 500
+
+                // Female markers
+                val isFemaleNamed = nameLower.contains("female") ||
+                        nameLower.contains("#female") ||
+                        nameLower.contains("-female") ||
+                        nameLower.contains("woman") ||
+                        nameLower.contains("fem") ||
+                        nameLower.contains("f00") ||
+                        nameLower.contains("f01") ||
+                        nameLower.contains("girl") ||
+                        voice.features.any { it.contains("female", ignoreCase = true) }
+
+                if (isFemaleNamed) score += 800
+
+                // High quality preference
+                if (voice.quality == Voice.QUALITY_VERY_HIGH) score += 200
+                else if (voice.quality == Voice.QUALITY_HIGH) score += 100
+
+                // Penalize not-installed network voices if local exists
+                if (voice.isNetworkConnectionRequired) score -= 50
+
+                voice to score
+            }.sortedByDescending { it.second }
+
+            val bestVoice = scoredVoices.firstOrNull()?.first
+            if (bestVoice != null) {
+                engine.voice = bestVoice
+                _activeVoiceName.value = bestVoice.name
+                Log.d(TAG, "Selected TTS voice: ${bestVoice.name} for ${language.code}")
             }
         } catch (e: Exception) {
             Log.w(TAG, "Voice selection could not query voices list", e)
         }
+    }
+
+    /**
+     * Sanitizes raw Gemini responses by removing markdown syntax, code fences,
+     * bullet asterisks, and stray symbols so TTS speaks naturally without pronouncing formatting.
+     */
+    fun sanitizeForSpeech(rawText: String): String {
+        return rawText
+            .replace(Regex("```[\\s\\S]*?```"), "")          // Code blocks
+            .replace(Regex("`[^`]*`"), "")                   // Inline code
+            .replace(Regex("\\*\\*(.*?)\\*\\*"), "$1")        // Bold
+            .replace(Regex("\\*(.*?)\\*"), "$1")              // Italic
+            .replace(Regex("(?m)^[\\s]*[-*•]\\s+"), "")      // Bullet list items
+            .replace(Regex("(?m)^[\\s]*#+\\s+"), "")          // Headers
+            .replace(Regex("\\[Notice:.*?\\]"), "")           // Debug notices
+            .replace(Regex("https?://\\S+"), "link")          // URLs
+            .replace(Regex("[#_~>|]"), "")                   // Markdown chars
+            .replace(Regex("\\s+"), " ")                     // Normalize whitespace
+            .trim()
     }
 
     fun speak(
@@ -170,9 +213,10 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
             return
         }
 
-        if (text.isBlank()) return
+        val speechCleanText = sanitizeForSpeech(text)
+        if (speechCleanText.isBlank()) return
 
-        lastSpokenText = text
+        lastSpokenText = speechCleanText
         lastLanguage = language
         applyVoiceSettings(language)
 
@@ -182,7 +226,7 @@ class TextToSpeechManager(private val context: Context) : TextToSpeech.OnInitLis
         }
 
         onStart?.invoke()
-        val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+        val result = engine.speak(speechCleanText, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
         if (result != TextToSpeech.SUCCESS) {
             Log.e(TAG, "engine.speak returned error code: $result")
             _ttsState.value = TtsState.Error("Speech output failed (code: $result)")

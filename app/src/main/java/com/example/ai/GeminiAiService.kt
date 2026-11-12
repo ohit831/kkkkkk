@@ -29,7 +29,7 @@ class GeminiAiService {
     private val commandSchema = Schema.obj(
         properties = mapOf(
             "action" to Schema.string(
-                description = "Primary intent: OPEN_APP, MESSAGE_DRAFT, SET_ALARM, CREATE_NOTE, CALL_CONTACT, CREATE_REMINDER, OPEN_MAPS, GENERAL_QUESTION, UNSUPPORTED"
+                description = "Primary intent: OPEN_APP, MESSAGE_DRAFT, SET_ALARM, CREATE_NOTE, CALL_CONTACT, CREATE_REMINDER, OPEN_MAPS, DEVICE_SETTING, GENERAL_QUESTION, UNSUPPORTED"
             ),
             "spokenResponse" to Schema.string(
                 description = "Natural, conversational spoken reply addressing Rohit in the requested language (Kannada, Hindi, or English)"
@@ -44,7 +44,9 @@ class GeminiAiService {
             "noteContent" to Schema.string(description = "Body of the note for CREATE_NOTE"),
             "contactName" to Schema.string(description = "Contact name for CALL_CONTACT"),
             "phoneNumber" to Schema.string(description = "Phone number for CALL_CONTACT"),
-            "locationQuery" to Schema.string(description = "Destination or search query for OPEN_MAPS")
+            "locationQuery" to Schema.string(description = "Destination or search query for OPEN_MAPS"),
+            "settingType" to Schema.string(description = "Target device setting: FLASHLIGHT, WIFI, BLUETOOTH, VOLUME, DISPLAY, AIRPLANE_MODE, BATTERY"),
+            "settingEnable" to Schema.boolean(description = "Optional state boolean (true to turn on, false to turn off, or null to open)")
         ),
         optionalProperties = listOf(
             "appName",
@@ -57,7 +59,9 @@ class GeminiAiService {
             "noteContent",
             "contactName",
             "phoneNumber",
-            "locationQuery"
+            "locationQuery",
+            "settingType",
+            "settingEnable"
         )
     )
 
@@ -249,6 +253,17 @@ class GeminiAiService {
             "OPEN_MAPS" -> {
                 val query = json.optString("locationQuery", originalInput)
                 AppCommand.OpenMaps(query = query)
+            }
+
+            "DEVICE_SETTING" -> {
+                val typeStr = json.optString("settingType", "WIFI").uppercase()
+                val settingType = try {
+                    com.example.commands.SettingType.valueOf(typeStr)
+                } catch (_: Exception) {
+                    com.example.commands.SettingType.WIFI
+                }
+                val enable = if (json.has("settingEnable")) json.optBoolean("settingEnable") else null
+                AppCommand.DeviceSetting(settingType, enable)
             }
 
             "GENERAL_QUESTION" -> {
